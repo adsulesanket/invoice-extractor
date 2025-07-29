@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Invoice Extractor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .step {
+            transition: all 0.3s ease-in-out;
+        }
+        .step-active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .step-inactive {
+            opacity: 0;
+            transform: translateY(20px);
+            display: none;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 4px solid #3498db;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .card {
+            background-color: white;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+        <header class="text-center mb-8">
+            <h1 class="text-3xl sm:text-4xl font-bold text-gray-900">Interactive Invoice Extractor</h1>
+            <p class="mt-2 text-md text-gray-600">Follow the steps to extract information from your invoice.</p>
+        </header>
+
+        <div class="stepper mb-8 flex justify-center space-x-4">
+            <div id="step-indicator-1" class="step-indicator flex items-center flex-col sm:flex-row text-blue-600 font-semibold">
+                <span class="step-circle w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center">1</span>
+                <span class="mt-2 sm:mt-0 sm:ml-2">Upload</span>
+            </div>
+            <div id="step-indicator-2" class="step-indicator flex items-center flex-col sm:flex-row text-gray-500">
+                <span class="step-circle w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">2</span>
+                <span class="mt-2 sm:mt-0 sm:ml-2">Key Info</span>
+            </div>
+            <div id="step-indicator-3" class="step-indicator flex items-center flex-col sm:flex-row text-gray-500">
+                <span class="step-circle w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">3</span>
+                <span class="mt-2 sm:mt-0 sm:ml-2">Line Items</span>
+            </div>
+            <div id="step-indicator-4" class="step-indicator flex items-center flex-col sm:flex-row text-gray-500">
+                <span class="step-circle w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">4</span>
+                <span class="mt-2 sm:mt-0 sm:ml-2">Custom</span>
+            </div>
+        </div>
+
+        <!-- Step 1: Upload & OCR -->
+        <div id="step-1" class="step step-active">
+            <div class="card text-center">
+                <h2 class="text-xl font-semibold mb-4">Step 1: Upload Invoice Image</h2>
+                <input type="file" id="invoice-upload" class="hidden" accept="image/*">
+                <label for="invoice-upload" class="cursor-pointer bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors inline-block">
+                    Choose Invoice Image
+                </label>
+                <div id="image-preview-container" class="mt-6 hidden">
+                    <img id="image-preview" src="#" alt="Invoice Preview" class="max-w-full mx-auto rounded-lg shadow-md max-h-80"/>
+                    <p id="file-name" class="mt-2 text-sm text-gray-500"></p>
+                </div>
+                <div id="ocr-loader" class="mt-6 hidden flex justify-center">
+                    <div class="loader"></div>
+                </div>
+                <div id="ocr-output-container" class="mt-6 hidden text-left">
+                    <h3 class="font-semibold text-lg mb-2">Extracted Text (OCR Result)</h3>
+                    <textarea id="ocr-output" class="w-full h-48 p-2 border rounded-md bg-gray-50" readonly></textarea>
+                    <button id="to-step-2" class="mt-4 w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">Next: Extract Key Information</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 2: Key-Value Extraction -->
+        <div id="step-2" class="step step-inactive">
+            <div class="card">
+                <h2 class="text-xl font-semibold mb-4 text-center">Step 2: Key Information</h2>
+                 <div id="key-value-loader" class="mt-6 hidden flex justify-center">
+                    <div class="loader"></div>
+                </div>
+                <div id="key-value-output" class="hidden">
+                    <ul class="space-y-3">
+                        <li class="flex justify-between items-center p-3 bg-gray-50 rounded-md">
+                            <span class="font-medium">Invoice Number:</span>
+                            <span id="invoice-number" class="text-gray-700"></span>
+                        </li>
+                        <li class="flex justify-between items-center p-3 bg-gray-50 rounded-md">
+                            <span class="font-medium">Invoice Date:</span>
+                            <span id="invoice-date" class="text-gray-700"></span>
+                        </li>
+                        <li class="flex justify-between items-center p-3 bg-gray-50 rounded-md">
+                            <span class="font-medium">Total Amount:</span>
+                            <span id="total-amount" class="text-gray-700 font-bold"></span>
+                        </li>
+                    </ul>
+                    <button id="to-step-3" class="mt-6 w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">Next: Extract Line Items</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 3: Line Item Extraction -->
+        <div id="step-3" class="step step-inactive">
+            <div class="card">
+                <h2 class="text-xl font-semibold mb-4 text-center">Step 3: Line Items</h2>
+                <div id="line-item-loader" class="mt-6 hidden flex justify-center">
+                    <div class="loader"></div>
+                </div>
+                <div id="line-item-output" class="hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white border">
+                            <thead class="bg-gray-100">
+                                <tr>
+                                    <th class="py-2 px-4 border-b text-left">Description</th>
+                                    <th class="py-2 px-4 border-b text-center">Quantity</th>
+                                    <th class="py-2 px-4 border-b text-right">Unit Price</th>
+                                    <th class="py-2 px-4 border-b text-right">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="line-items-table">
+                                <!-- Rows will be inserted here -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <button id="to-step-4" class="mt-6 w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors">Next: Custom Field Extraction</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Step 4: Custom Field Extraction -->
+        <div id="step-4" class="step step-inactive">
+            <div class="card">
+                <h2 class="text-xl font-semibold mb-4 text-center">Step 4: Add and Extract a Custom Field</h2>
+                <p class="text-center text-gray-600 mb-4">Need to extract something else? Define it here.</p>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <input type="text" id="custom-field-name" placeholder="e.g., VAT Number, PO Number" class="flex-grow p-3 border rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <button id="extract-custom-field" class="bg-green-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-700 transition-colors">Extract Custom Field</button>
+                </div>
+                 <div id="custom-field-loader" class="mt-6 hidden flex justify-center">
+                    <div class="loader"></div>
+                </div>
+                <div id="custom-field-output" class="mt-6 hidden">
+                     <h3 class="font-semibold text-lg mb-2">Custom Extraction Result:</h3>
+                     <div id="custom-results-container" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-8">
+            <button id="restart-button" class="bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-800 transition-colors hidden">Start Over</button>
+        </div>
+
+    </div>
+
+    <script>
+        const step1 = document.getElementById('step-1');
+        const step2 = document.getElementById('step-2');
+        const step3 = document.getElementById('step-3');
+        const step4 = document.getElementById('step-4');
+
+        const stepIndicator1 = document.getElementById('step-indicator-1');
+        const stepIndicator2 = document.getElementById('step-indicator-2');
+        const stepIndicator3 = document.getElementById('step-indicator-3');
+        const stepIndicator4 = document.getElementById('step-indicator-4');
+
+        const invoiceUpload = document.getElementById('invoice-upload');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        const fileName = document.getElementById('file-name');
+
+        const ocrLoader = document.getElementById('ocr-loader');
+        const ocrOutputContainer = document.getElementById('ocr-output-container');
+        const ocrOutput = document.getElementById('ocr-output');
+
+        const toStep2Btn = document.getElementById('to-step-2');
+        const toStep3Btn = document.getElementById('to-step-3');
+        const toStep4Btn = document.getElementById('to-step-4');
+        
+        const keyValueLoader = document.getElementById('key-value-loader');
+        const keyValueOutput = document.getElementById('key-value-output');
+        const invoiceNumberEl = document.getElementById('invoice-number');
+        const invoiceDateEl = document.getElementById('invoice-date');
+        const totalAmountEl = document.getElementById('total-amount');
+
+        const lineItemLoader = document.getElementById('line-item-loader');
+        const lineItemOutput = document.getElementById('line-item-output');
+        const lineItemsTable = document.getElementById('line-items-table');
+
+        const customFieldNameInput = document.getElementById('custom-field-name');
+        const extractCustomFieldBtn = document.getElementById('extract-custom-field');
+        const customFieldLoader = document.getElementById('custom-field-loader');
+        const customFieldOutput = document.getElementById('custom-field-output');
+        const customResultsContainer = document.getElementById('custom-results-container');
+        
+        const restartButton = document.getElementById('restart-button');
+
+        let base64ImageData = null;
+        let rawOcrText = '';
+        let extractedData = {};
+
+        // --- Navigation Logic ---
+        function goToStep(stepNumber) {
+            [step1, step2, step3, step4].forEach((step, index) => {
+                if (index + 1 === stepNumber) {
+                    step.classList.remove('step-inactive');
+                    step.classList.add('step-active');
+                } else {
+                    step.classList.add('step-inactive');
+                    step.classList.remove('step-active');
+                }
+            });
+
+            [stepIndicator1, stepIndicator2, stepIndicator3, stepIndicator4].forEach((indicator, index) => {
+                const circle = indicator.querySelector('.step-circle');
+                if (index < stepNumber) {
+                    indicator.classList.remove('text-gray-500');
+                    indicator.classList.add('text-blue-600', 'font-semibold');
+                    circle.classList.remove('bg-gray-300');
+                    circle.classList.add('bg-blue-600', 'text-white');
+                } else {
+                    indicator.classList.add('text-gray-500');
+                    indicator.classList.remove('text-blue-600', 'font-semibold');
+                    circle.classList.add('bg-gray-300');
+                    circle.classList.remove('bg-blue-600', 'text-white');
+                }
+            });
+            
+            if(stepNumber > 1) {
+                restartButton.classList.remove('hidden');
+            } else {
+                restartButton.classList.add('hidden');
+            }
+        }
+
+        // --- API Call Logic ---
+        async function callGeminiAPI(prompt, imageData = null, jsonSchema = null) {
+            // =================================================================================
+            // IMPORTANT: PASTE YOUR GOOGLE AI API KEY HERE
+            // You can get a free key from https://aistudio.google.com/app/apikey
+            // =================================================================================
+            const apiKey = "AIzaSyCMqGyknrMjB6kE7uw7NhqDD7d8jwAgTR8"; 
+            
+            if (apiKey === "YOUR_API_KEY_HERE") {
+                alert("Please replace 'YOUR_API_KEY_HERE' with your actual Google AI API key in the code.");
+                return null;
+            }
+
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            
+            let contents = [{ role: "user", parts: [{ text: prompt }] }];
+
+            if (imageData) {
+                contents[0].parts.push({
+                    inlineData: {
+                        mimeType: "image/png", // Assuming PNG, adjust if needed
+                        data: imageData
+                    }
+                });
+            }
+
+            const payload = { contents };
+
+            if (jsonSchema) {
+                payload.generationConfig = {
+                    responseMimeType: "application/json",
+                    responseSchema: jsonSchema
+                };
+            }
+            
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    throw new Error(`API Error: ${response.status} - ${errorBody}`);
+                }
+                const result = await response.json();
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    const text = result.candidates[0].content.parts[0].text;
+                    return text;
+                } else {
+                    console.error("Unexpected API response structure:", result);
+                    if (result.promptFeedback && result.promptFeedback.blockReason) {
+                         throw new Error(`Request blocked: ${result.promptFeedback.blockReason}. ${result.promptFeedback.blockReasonMessage || ''}`);
+                    }
+                    throw new Error("Could not extract text from API response.");
+                }
+            } catch (error) {
+                console.error("Error calling Gemini API:", error);
+                alert(`An error occurred: ${error.message}. Please check the console for details.`);
+                return null;
+            }
+        }
+
+        // --- Step 1: Upload & OCR ---
+        invoiceUpload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                fileName.textContent = file.name;
+                const reader = new FileReader();
+                reader.onload = async (e) => {
+                    imagePreview.src = e.target.result;
+                    imagePreviewContainer.classList.remove('hidden');
+                    base64ImageData = e.target.result.split(',')[1];
+                    
+                    ocrLoader.classList.remove('hidden');
+                    ocrOutputContainer.classList.add('hidden');
+
+                    const prompt = "Extract all text from this invoice image, preserving the layout as much as possible.";
+                    rawOcrText = await callGeminiAPI(prompt, base64ImageData);
+
+                    ocrLoader.classList.add('hidden');
+                    if (rawOcrText) {
+                        ocrOutput.value = rawOcrText;
+                        ocrOutputContainer.classList.remove('hidden');
+                        ocrOutputContainer.classList.add('fade-in');
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // --- Step 2: Key-Value Extraction ---
+        toStep2Btn.addEventListener('click', async () => {
+            goToStep(2);
+            keyValueLoader.classList.remove('hidden');
+            keyValueOutput.classList.add('hidden');
+
+            const schema = {
+                type: "OBJECT",
+                properties: {
+                    invoiceNumber: { type: "STRING", description: "The invoice number or ID" },
+                    invoiceDate: { type: "STRING", description: "The date the invoice was issued" },
+                    totalAmount: { type: "STRING", description: "The final total amount due" }
+                },
+                required: ["invoiceNumber", "invoiceDate", "totalAmount"]
+            };
+
+            const prompt = `From the following OCR text of an invoice, extract the invoice number, invoice date, and total amount.
+            
+            OCR Text:
+            ---
+            ${rawOcrText}
+            ---
+            `;
+            
+            const resultText = await callGeminiAPI(prompt, null, schema);
+            
+            keyValueLoader.classList.add('hidden');
+
+            if (resultText) {
+                try {
+                    extractedData = JSON.parse(resultText);
+                    invoiceNumberEl.textContent = extractedData.invoiceNumber || 'N/A';
+                    invoiceDateEl.textContent = extractedData.invoiceDate || 'N/A';
+                    totalAmountEl.textContent = extractedData.totalAmount || 'N/A';
+                    keyValueOutput.classList.remove('hidden');
+                    keyValueOutput.classList.add('fade-in');
+                } catch (e) {
+                    console.error("Failed to parse key-value JSON:", e);
+                    alert("Could not parse the extracted key information. Please check the console.");
+                }
+            }
+        });
+
+        // --- Step 3: Line Item Extraction ---
+        toStep3Btn.addEventListener('click', async () => {
+            goToStep(3);
+            lineItemLoader.classList.remove('hidden');
+            lineItemOutput.classList.add('hidden');
+
+            const schema = {
+                type: "OBJECT",
+                properties: {
+                    lineItems: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                description: { type: "STRING" },
+                                quantity: { type: "STRING" },
+                                unitPrice: { type: "STRING" },
+                                lineTotal: { type: "STRING" }
+                            },
+                            required: ["description", "lineTotal"]
+                        }
+                    }
+                }
+            };
+
+            const prompt = `From the following OCR text, extract all line items. For each item, identify its description, quantity, unit price, and the total price for that line.
+            
+            OCR Text:
+            ---
+            ${rawOcrText}
+            ---
+            `;
+
+            const resultText = await callGeminiAPI(prompt, null, schema);
+            lineItemLoader.classList.add('hidden');
+
+            if (resultText) {
+                try {
+                    const resultJson = JSON.parse(resultText);
+                    const items = resultJson.lineItems || [];
+                    lineItemsTable.innerHTML = ''; // Clear previous results
+                    if (items.length > 0) {
+                        items.forEach(item => {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td class="py-2 px-4 border-b">${item.description || 'N/A'}</td>
+                                <td class="py-2 px-4 border-b text-center">${item.quantity || 'N/A'}</td>
+                                <td class="py-2 px-4 border-b text-right">${item.unitPrice || 'N/A'}</td>
+                                <td class="py-2 px-4 border-b text-right font-medium">${item.lineTotal || 'N/A'}</td>
+                            `;
+                            lineItemsTable.appendChild(row);
+                        });
+                    } else {
+                         lineItemsTable.innerHTML = '<tr><td colspan="4" class="text-center py-4">No line items found.</td></tr>';
+                    }
+                    lineItemOutput.classList.remove('hidden');
+                    lineItemOutput.classList.add('fade-in');
+                } catch(e) {
+                    console.error("Failed to parse line items JSON:", e);
+                    alert("Could not parse the extracted line items. Please check the console.");
+                }
+            }
+        });
+
+        // --- Step 4: Custom Field Extraction ---
+        toStep4Btn.addEventListener('click', () => {
+            goToStep(4);
+        });
+        
+        extractCustomFieldBtn.addEventListener('click', async () => {
+            const customFieldName = customFieldNameInput.value.trim();
+            if (!customFieldName) {
+                alert("Please enter a name for the custom field you want to extract.");
+                return;
+            }
+
+            customFieldLoader.classList.remove('hidden');
+            customFieldOutput.classList.add('hidden');
+
+            // Sanitize field name for use as a JSON key
+            const fieldKey = customFieldName.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
+
+            const schema = {
+                type: "OBJECT",
+                properties: {
+                    [fieldKey]: { type: "STRING", description: `The value for the field: ${customFieldName}` }
+                },
+                required: [fieldKey]
+            };
+
+            const prompt = `From the following OCR text, find and extract the value for the field "${customFieldName}".
+            
+            OCR Text:
+            ---
+            ${rawOcrText}
+            ---
+            `;
+
+            const resultText = await callGeminiAPI(prompt, null, schema);
+            customFieldLoader.classList.add('hidden');
+
+            if(resultText) {
+                try {
+                    const resultJson = JSON.parse(resultText);
+                    const value = resultJson[fieldKey] || 'Not Found';
+                    
+                    const resultDiv = document.createElement('div');
+                    resultDiv.className = 'flex justify-between items-center p-3 bg-gray-50 rounded-md fade-in';
+                    resultDiv.innerHTML = `
+                        <span class="font-medium">${customFieldName}:</span>
+                        <span class="text-gray-700">${value}</span>
+                    `;
+                    customResultsContainer.appendChild(resultDiv);
+                    customFieldOutput.classList.remove('hidden');
+                    customFieldNameInput.value = ''; // Clear input for next entry
+                } catch(e) {
+                    console.error("Failed to parse custom field JSON:", e);
+                    alert("Could not parse the custom field result. Please check the console.");
+                }
+            }
+        });
+
+        // --- Restart Logic ---
+        restartButton.addEventListener('click', () => {
+             // Reset state variables
+            base64ImageData = null;
+            rawOcrText = '';
+            extractedData = {};
+
+            // Reset UI elements
+            invoiceUpload.value = '';
+            imagePreviewContainer.classList.add('hidden');
+            ocrOutputContainer.classList.add('hidden');
+            keyValueOutput.classList.add('hidden');
+            lineItemOutput.classList.add('hidden');
+            customFieldOutput.classList.add('hidden');
+            customResultsContainer.innerHTML = '';
+            customFieldNameInput.value = '';
+            
+            // Go to first step
+            goToStep(1);
+        });
+
+
+        // Initialize on first load
+        goToStep(1);
+
+    </script>
+</body>
+</html>
